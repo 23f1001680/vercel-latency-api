@@ -1,9 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import json
-import urllib.request
+import os
 
 app = FastAPI()
 
@@ -33,16 +33,15 @@ def calc_p95(values):
 @app.post("/latency")
 @app.post("/")
 async def get_latency(req: LatencyRequest):
-    # Foolproof trick: Fetch the dataset directly from your public GitHub repo!
-    url = "https://raw.githubusercontent.com/23f1001680/vercel-latency-api/main/q-vercel-latency.json"
+    # Since we moved the JSON file, they are now safely in the exact same folder!
+    file_path = os.path.join(os.path.dirname(__file__), "q-vercel-latency.json")
     
     try:
-        with urllib.request.urlopen(url) as response:
-            data = json.loads(response.read().decode())
+        with open(file_path, "r") as f:
+            data = json.load(f)
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"Failed to load local JSON: {str(e)}"}
 
-    # Process the data
     results = {}
     for reg in req.regions:
         if isinstance(data, dict):
@@ -66,4 +65,5 @@ async def get_latency(req: LatencyRequest):
             "avg_uptime": sum(uptimes) / len(uptimes) if uptimes else 0.0,
             "breaches": sum(1 for x in latencies if x > req.threshold_ms)
         }
+        
     return results
